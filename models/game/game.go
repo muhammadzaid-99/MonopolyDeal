@@ -23,7 +23,7 @@ const (
 	MaxCardsPlayable     = 3
 	MaxPilesAllowed      = 20
 	HouseRent            = 3
-	HotelRent            = 4 // including house
+	HotelRent            = 7 // including house
 )
 
 type Game struct {

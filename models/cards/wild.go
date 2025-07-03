@@ -34,7 +34,7 @@ func extractPropertyInfo(propertyColors []PropertyColor) []PropertyCardInfo {
 }
 
 func GetWildNameFromColors(propertyColors []PropertyColor) string {
-	name := "Wild Card -"
+	name := "Wild -"
 	for _, color := range propertyColors {
 		name += " " + string(color)
 	}

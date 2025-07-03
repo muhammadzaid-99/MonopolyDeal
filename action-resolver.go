@@ -498,6 +498,8 @@ func (pd *PendingBirthday) Resolve(room *Room, p *PlayerConn, msg WSMessage) {
 					"type":   "action",
 					"action": "clear",
 				})
+			} else {
+				p.AddToHand(card)
 			}
 		}
 	}
@@ -553,7 +555,7 @@ func (pd *PendingDebtCollector) Resolve(room *Room, p *PlayerConn, msg WSMessage
 		}
 
 	case "reaction":
-		if p.ID == room.Game.CurrentTurn.ID {
+		if p.ID != pd.TargetPlayer.ID {
 			return
 		}
 
@@ -606,7 +608,9 @@ func (pd *PendingDebtCollector) Resolve(room *Room, p *PlayerConn, msg WSMessage
 						"action": "continue",
 					})
 					pd.Step = "cancelled"
+					return
 				}
+				p.AddToHand(card)
 			}
 		}
 	case "cancelled":
@@ -662,9 +666,9 @@ func (pd *PendingRent) Resolve(room *Room, p *PlayerConn, msg WSMessage) {
 		}
 
 		// try to play card, maybe its double the rent, it will change multiplier
-		if pd.RentCard != nil {
-			room.PlayCard(p.ID, msg.CardID, DiscardPile)
-		}
+		// if msg.Type == "play-card" && pd.RentCard != nil {
+		// 	room.PlayCard(p.ID, msg.CardID, DiscardPile)
+		// }
 
 		// if msg.PropertyPileID == "" || (pd.IsForOnePlayer && msg.TargetPlayerID == "") {
 		// 	// give both at once
@@ -823,6 +827,8 @@ func (pd *PendingRent) Resolve(room *Room, p *PlayerConn, msg WSMessage) {
 						fmt.Println("This one opponent has paid playing Just Say No.")
 					}
 					room.Game.PushNewMessage(fmt.Sprintf("%s played 'Just Say No' to %s", p.Name, room.Game.CurrentTurn.Name))
+				} else {
+					p.AddToHand(card)
 				}
 			}
 		}

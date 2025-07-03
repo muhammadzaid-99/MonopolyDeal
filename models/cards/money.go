@@ -40,7 +40,7 @@ func (m *MoneyCard) GetType() CardType { return CardTypeMoney }
 func NewMoneyCard(value MoneyValue) *MoneyCard {
 	return &MoneyCard{
 		BaseCard: BaseCard{
-			Name:  "Money Card",
+			Name:  "Money",
 			Value: value,
 			Type:  CardTypeMoney,
 		},
