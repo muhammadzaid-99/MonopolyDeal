@@ -425,7 +425,7 @@ func (pd *PendingForcedDeal) Resolve(room *Room, p *PlayerConn, msg WSMessage) {
 		}
 		if msg.Type == "arrange-property" && msg.CardID == pd.PlayerCardID {
 			if card, ok, _, commit := pd.TargetPlayer.GetProperty(msg.CardID); ok {
-				if pd.TargetPlayer.AddToProperty(msg.PropertyPileID, card) {
+				if pd.TargetPlayer.AddToProperty(msg.PropertyArrangeDestPileID, card) {
 					commit()
 					room.Game.PushNewMessage(fmt.Sprintf("%s moved their %s card", pd.TargetPlayer.Name, card.GetName()))
 				}
