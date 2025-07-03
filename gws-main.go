@@ -122,51 +122,46 @@ func (h *WSHandler) OnMessage(c *gws.Conn, message *gws.Message) {
 	}
 
 	switch msg.Type {
-	case "join-room":
-		if msg.RoomID == "" || msg.PlayerName == "" {
-			SendMessage(c, map[string]string{
-				"type":    "incomplete-info",
-				"message": "Missing Room ID or Player Name",
-			})
-			return
-		}
-		roomID, joined := h.RoomMgr.JoinRoom(playerID, msg.PlayerName, msg.RoomID, c)
-		SendMessage(c, map[string]string{
-			"type":        msg.Type,
-			"room_id":     roomID,
-			"join_status": strconv.FormatBool(joined),
-		})
-	case "create-room":
-		if msg.PlayerName == "" {
-			SendMessage(c, map[string]string{
-				"type":    "incomplete-info",
-				"message": "Missing Player Name",
-			})
-			return
-		}
-		roomID, joined := h.RoomMgr.CreateJoinRoom(playerID, msg.PlayerName, c)
-		SendMessage(c, map[string]string{
-			"type":        msg.Type,
-			"room_id":     roomID,
-			"join_status": strconv.FormatBool(joined),
-		})
-	case "game-state":
-		h.RoomMgr.BroadcastAllGameState(playerID)
 
-	case "change-ready-state":
-		readyState := msg.ReadyState
-		state := h.RoomMgr.ChangeReadyState(msg.PlayerID, readyState)
+	case "create-room":
+		roomID, joined := h.RoomMgr.CreateJoinRoom(c, msg)
+		SendMessage(c, map[string]string{
+			"type":    msg.Type,
+			"room_id": roomID,
+			"joined":  strconv.FormatBool(joined),
+		})
+
+	case "join-room":
+		if msg.RoomID == "" {
+			SendMessage(c, map[string]string{
+				"type":    "incomplete-info",
+				"message": "Missing Room ID",
+			})
+			return
+		}
+		roomID, joined := h.RoomMgr.JoinRoom(c, msg, msg.RoomID)
 		SendMessage(c, map[string]string{
 			"type":        msg.Type,
-			"ready_state": strconv.FormatBool(state),
+			"room_id":     roomID,
+			"join_status": strconv.FormatBool(joined),
 		})
-	case "start-game":
-		ok := h.RoomMgr.StartGame(msg.PlayerID)
-		SendMessage(c, map[string]string{
-			"type":       msg.Type,
-			"game_start": strconv.FormatBool(ok),
-			"message":    "If game_start is false, either not everyone is ready or game already started.",
-		})
+
+	// case "game-state":
+	// 	h.RoomMgr.BroadcastAllGameState(playerID)
+	// case "change-ready-state":
+	// 	readyState := msg.ReadyState
+	// 	state := h.RoomMgr.ChangeReadyState(msg.PlayerID, readyState)
+	// 	SendMessage(c, map[string]string{
+	// 		"type":        msg.Type,
+	// 		"ready_state": strconv.FormatBool(state),
+	// 	})
+	// case "start-game":
+	// 	ok := h.RoomMgr.StartGame(msg.PlayerID)
+	// 	SendMessage(c, map[string]string{
+	// 		"type":       msg.Type,
+	// 		"game_start": strconv.FormatBool(ok),
+	// 		"message":    "If game_start is false, either not everyone is ready or game already started.",
+	// 	})
 
 	default:
 		// further logic maintained by handler

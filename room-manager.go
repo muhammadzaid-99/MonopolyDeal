@@ -18,6 +18,18 @@ func NewRoomManager() *RoomManager {
 	return &RoomManager{Rooms: make(map[string]*Room), PlayerIDToRoomID: make(map[string]string)}
 }
 
+func (rm *RoomManager) NewRoom(roomID string) *Room {
+	r := &Room{
+		ID:      roomID,
+		Players: make(map[string]*PlayerConn),
+		Events:  make(chan RoomEvent, 10),
+		Quit:    make(chan struct{}),
+	}
+	rm.Rooms[roomID] = r
+	go r.Run()
+	return r
+}
+
 func (rm *RoomManager) UpdatePlayerConnection(playerID string, c *gws.Conn) {
 	room := rm.GetPlayerRoom(playerID)
 	rm.Mutex.Lock()
@@ -84,36 +96,60 @@ func (rm *RoomManager) GenerateRoomID() string {
 	}
 }
 
-func (rm *RoomManager) CreateJoinRoom(playerID string, playerName string, c *gws.Conn) (string, bool) {
-	if id, ok := rm.PlayerIDToRoomID[playerID]; ok {
+func (rm *RoomManager) CreateJoinRoom(c *gws.Conn, msg WSMessage) (string, bool) {
+	if id, ok := rm.PlayerIDToRoomID[msg.PlayerID]; ok {
 		c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"already-in-a-room"}`))
 		return id, false
 	}
 	roomID := rm.GenerateRoomID()
-	rm.Rooms[roomID] = &Room{
-		ID:      roomID,
-		Players: make(map[string]*PlayerConn),
-	}
+	rm.NewRoom(roomID)
 
-	return rm.JoinRoom(playerID, playerName, roomID, c)
+	msg.Type = "join-room"
+	return rm.JoinRoom(c, msg, roomID)
 }
 
-func (rm *RoomManager) JoinRoom(playerID string, playerName string, roomID string, c *gws.Conn) (string, bool) {
-	if rid, ok := rm.PlayerIDToRoomID[playerID]; ok {
+func (rm *RoomManager) JoinRoom(c *gws.Conn, msg WSMessage, roomID string) (string, bool) {
+	if rid, ok := rm.PlayerIDToRoomID[msg.PlayerID]; ok {
 		c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"already-in-a-room"}`))
 		return rid, false
 	}
+	if msg.PlayerName == "" {
+		SendMessage(c, map[string]string{
+			"type":    "incomplete-info",
+			"message": "Missing Player Name",
+		})
+		return "", false
+	}
 	if room, exists := rm.Rooms[roomID]; exists {
-		if room.IsGameStarted {
-			c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"game-already-started"}`))
+		reply := make(chan error)
+		room.Events <- RoomEvent{c, msg, reply}
+		if err := <-reply; err != nil {
+			fmt.Println(err)
 			return "", false
+		} else {
+			rm.PlayerIDToRoomID[msg.PlayerID] = roomID
+			return roomID, true
 		}
-		room.AddPlayer(playerID, playerName, c)
-		rm.PlayerIDToRoomID[playerID] = roomID
-		return roomID, true
 	}
 	return "", false
 }
+
+// func (rm *RoomManager) JoinRoom(playerID string, playerName string, roomID string, c *gws.Conn) (string, bool) {
+// 	if rid, ok := rm.PlayerIDToRoomID[playerID]; ok {
+// 		c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"already-in-a-room"}`))
+// 		return rid, false
+// 	}
+// 	if room, exists := rm.Rooms[roomID]; exists {
+// 		if room.IsGameStarted {
+// 			c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"game-already-started"}`))
+// 			return "", false
+// 		}
+// 		room.AddPlayer(playerID, playerName, c)
+// 		rm.PlayerIDToRoomID[playerID] = roomID
+// 		return roomID, true
+// 	}
+// 	return "", false
+// }
 
 func (rm *RoomManager) ChangeReadyState(playerID string, state bool) bool {
 	room := rm.GetPlayerRoom(playerID)

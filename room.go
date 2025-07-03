@@ -4,6 +4,7 @@ import (
 	c "cashdeal/models/cards"
 	g "cashdeal/models/game"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"math/rand"
@@ -26,6 +27,12 @@ const (
 	PropertyPile PlayLocation = "PropertyPile"
 )
 
+type RoomEvent struct {
+	c     *gws.Conn
+	msg   WSMessage
+	reply chan error
+}
+
 type Room struct {
 	Players       map[string]*PlayerConn
 	Game          *g.Game
@@ -35,6 +42,20 @@ type Room struct {
 	PlayerOrder   []string
 	TurnIndex     int
 	PendingAction PendingAction
+	Events        chan RoomEvent
+	Quit          chan struct{}
+}
+
+func (r *Room) JoinRoom(playerID string, playerName string, c *gws.Conn) error {
+
+	if r.IsGameStarted {
+		c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"game-already-started"}`))
+		return errors.New("error: game started already")
+	}
+	fmt.Println("Now adding player")
+	r.AddPlayer(playerID, playerName, c)
+	return nil
+
 }
 
 func (r *Room) BroadcastMessage(playerID string, message string) {
@@ -347,6 +368,7 @@ func (r *Room) PlayCard(playerID string, cardID uint8, location PlayLocation) bo
 			r.Game.MoveToDiscardPile(card)
 			r.Game.PushNewMessage(fmt.Sprintf("%s played %s", player.Name, card.GetName()))
 		case BankPile:
+			// panic("BANK PANIC!!!")
 			fmt.Println("In Bank Pile")
 			if !player.AddToBank(card) {
 				player.AddToHand(card) // rollback
