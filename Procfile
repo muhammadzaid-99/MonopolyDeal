@@ -1,1 +1,1 @@
-web: ./cashdeal
+web: ./bin/cashdeal
