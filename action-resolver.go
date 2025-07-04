@@ -721,7 +721,7 @@ func (pd *PendingRent) Resolve(room *Room, p *PlayerConn, msg WSMessage) {
 		}
 		// try to play card, maybe its double the rent, it will change multiplier
 		if pd.RentCard != nil && room.PlayCard(p.ID, msg.CardID, DiscardPile) {
-			room.Game.PushNewMessage(fmt.Sprintf("%s doubled the rent to %v", pd.TargetPlayer.Name, uint8(pd.BasePayable)*pd.RentMultiplier))
+			room.Game.PushNewMessage(fmt.Sprintf("%s doubled the rent to %v", p.Name, uint8(pd.BasePayable)*pd.RentMultiplier))
 			fmt.Println("Rent doubled.")
 			return
 		} else if msg.Type == "continue" {

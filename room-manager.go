@@ -71,7 +71,10 @@ func (rm *RoomManager) GetPlayerRoom(playerID string) *Room {
 	if !ok {
 		return nil
 	}
-	return rm.Rooms[roomID]
+	if room, ok := rm.Rooms[roomID]; ok {
+		return room
+	}
+	return nil
 }
 
 func (rm *RoomManager) BroadcastAllGameState(playerID string) {
@@ -200,60 +203,4 @@ func (rm *RoomManager) JoinRoom(c *gws.Conn, msg WSMessage, roomID string) (stri
 		}
 	}
 	return "", false
-}
-
-func (rm *RoomManager) ChangeReadyState(playerID string, state bool) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.ChangeReadyState(playerID, state)
-	}
-	return false
-}
-
-func (rm *RoomManager) StartGame(playerID string) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.StartGame(playerID)
-	}
-	return false
-}
-
-func (rm *RoomManager) PlayCard(playerID string, cardID uint8, location PlayLocation) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.PlayCard(playerID, cardID, location)
-	}
-	return false
-}
-
-func (rm *RoomManager) ArrangeProperty(playerID string, cardID uint8, destination_pile_id string) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.ArrangeProperty(playerID, cardID, destination_pile_id)
-	}
-	return false
-}
-
-func (rm *RoomManager) DrawCards(playerID string) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.DrawCards(playerID)
-	}
-	return false
-}
-
-func (rm *RoomManager) DiscardCard(playerID string, cardID uint8) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.DiscardCard(playerID, cardID)
-	}
-	return false
-}
-
-func (rm *RoomManager) EndTurn(playerID string) bool {
-	room := rm.GetPlayerRoom(playerID)
-	if room != nil {
-		return room.EndTurn(playerID)
-	}
-	return false
 }

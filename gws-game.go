@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/lxzan/gws"
@@ -20,7 +21,7 @@ func (h *WSHandler) GameMessageHandler(c *gws.Conn, msg WSMessage) {
 func (r *Room) Run() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Printf("Room %s crashed: %v\n", r.ID, err)
+			fmt.Printf("Room %s crashed: %v\n%s\n", r.ID, err, debug.Stack())
 		}
 		r.Cleanup <- r.ID
 	}()
@@ -83,7 +84,14 @@ func (r *Room) handleEvent(event RoomEvent) {
 		// it should be noted that we are not acquiring lock because
 		// it is guaranteed that there is no other path to move
 		// acquiring lock will cause deadlocks here
-		r.PendingAction.Resolve(r, r.Players[msg.PlayerID], msg)
+		r.Mutex.Lock()
+		if player, ok := r.Players[msg.PlayerID]; ok {
+			r.Mutex.Unlock()
+			r.PendingAction.Resolve(r, player, msg)
+		} else {
+			r.Mutex.Unlock()
+			return
+		}
 		r.BroadcastAllGameState()
 
 	} else {
