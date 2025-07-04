@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/lxzan/gws"
 )
@@ -44,6 +45,28 @@ type Room struct {
 	PendingAction PendingAction
 	Events        chan RoomEvent
 	Quit          chan struct{}
+	DeleteAt      *time.Timer
+	Cleanup       chan string
+}
+
+func (r *Room) TryDelete() {
+	// either we have no players or players who are not Connected
+	for _, p := range r.Players {
+		if p.Connected {
+			return
+		}
+	}
+	duration := time.Minute
+	if len(r.Players) == 0 {
+		duration *= 2
+	} else {
+		duration *= 20
+	}
+	fmt.Printf("The room %s will be deleted after %v at %s.\n", r.ID, duration, time.Now().Add(duration).Format("2006-01-02 15:04:05"))
+	r.DeleteAt = time.AfterFunc(duration, func() {
+
+		close(r.Quit)
+	})
 }
 
 func (r *Room) JoinRoom(playerID string, playerName string, c *gws.Conn) error {
@@ -52,10 +75,48 @@ func (r *Room) JoinRoom(playerID string, playerName string, c *gws.Conn) error {
 		c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"game-already-started"}`))
 		return errors.New("error: game started already")
 	}
-	fmt.Println("Now adding player")
+	if len(r.Players) >= g.MaxPlayers {
+		c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"max-players-joined"}`))
+		return errors.New("error: room is full")
+	}
+	// fmt.Println("Now adding player")
 	r.AddPlayer(playerID, playerName, c)
+	r.ResetDeletion()
 	return nil
 
+}
+
+func (r *Room) ResetDeletion() {
+	if r.DeleteAt != nil {
+		fmt.Println("Room deletion cancelled: ", r.ID)
+		r.DeleteAt.Stop()
+		r.DeleteAt = nil
+	}
+}
+
+func (r *Room) LeaveRoom(playerID string) error {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+	defer r.TryDelete()
+	if p, ok := r.Players[playerID]; ok {
+		p.Connected = false // could not leave but we know player disconnected
+		if r.IsGameStarted {
+			return errors.New("cannot-leave-while-game-is-started")
+		}
+		delete(r.Players, playerID)
+		return nil
+	}
+	return errors.New("could-not-leave-room")
+}
+
+func (r *Room) UpdatePlayerConnection(c *gws.Conn, playerID string) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+	if player, ok := r.Players[playerID]; ok {
+		player.Conn = c
+		player.Connected = true // we know player is now connected
+		r.ResetDeletion()
+	}
 }
 
 func (r *Room) BroadcastMessage(playerID string, message string) {
@@ -173,6 +234,11 @@ func (r *Room) AddPlayer(playerID string, playerName string, c *gws.Conn) {
 	defer r.Mutex.Unlock()
 	_, exists := r.Players[playerID]
 	if !exists {
+		for _, p := range r.Players {
+			if p.Name == playerName {
+				playerName = fmt.Sprintf("%s%d", playerName, rand.Intn(10))
+			}
+		}
 		r.Players[playerID] = &PlayerConn{
 			Conn:    c,
 			Player2: *r.Game.NewPlayer(playerID, playerName),
@@ -232,6 +298,11 @@ func (r *Room) StartGame(playerID string) bool {
 		// game already started
 		return false
 	}
+
+	if len(r.Players) < g.MinPlayers {
+		return false
+	}
+
 	if r.IsEveryoneReady() {
 		// first lock the room
 		r.IsGameStarted = true

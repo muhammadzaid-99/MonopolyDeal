@@ -29,6 +29,7 @@ type Player2 struct {
 	IsReady       bool
 	ActionMessage map[string]string
 	Mutex         sync.Mutex
+	Connected     bool
 }
 
 func (p *Player2) NewPile() *PropertyPile {

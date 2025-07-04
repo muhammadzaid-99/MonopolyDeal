@@ -36,6 +36,7 @@ type WSMessage struct {
 	TargetPlayerID            string              `json:"target_player_id,omitempty"`
 	PropertyPileID            string              `json:"property_pile_id,omitempty"`
 	PropertyColor             cards.PropertyColor `json:"property_color,omitempty"`
+	Message                   string
 	// PropertyArrangeDestColor cards.PropertyColor `json:"property_arrange_dest_color,omitempty"`
 }
 
@@ -64,6 +65,12 @@ func (h *WSHandler) ListConnection(c *gws.Conn, playerID string) {
 func (h *WSHandler) ListIP(playerID string, ip string) {
 	h.Mutex.Lock()
 	h.PlayerIDToIP[playerID] = ip
+	h.Mutex.Unlock()
+}
+
+func (h *WSHandler) UnlistIP(playerID string) {
+	h.Mutex.Lock()
+	delete(h.PlayerIDToIP, playerID)
 	h.Mutex.Unlock()
 }
 
@@ -124,6 +131,7 @@ func (h *WSHandler) OnMessage(c *gws.Conn, message *gws.Message) {
 	switch msg.Type {
 
 	case "create-room":
+		// h.RoomMgr.CreateJoinRoom(c, msg)
 		roomID, joined := h.RoomMgr.CreateJoinRoom(c, msg)
 		SendMessage(c, map[string]string{
 			"type":    msg.Type,
@@ -139,6 +147,7 @@ func (h *WSHandler) OnMessage(c *gws.Conn, message *gws.Message) {
 			})
 			return
 		}
+		// h.RoomMgr.JoinRoom(c, msg, msg.RoomID)
 		roomID, joined := h.RoomMgr.JoinRoom(c, msg, msg.RoomID)
 		SendMessage(c, map[string]string{
 			"type":        msg.Type,
@@ -174,7 +183,10 @@ func (h *WSHandler) OnClose(c *gws.Conn, err error) {
 	h.Mutex.Lock()
 	playerID := h.ConnToPlayerID[c]
 	h.Mutex.Unlock()
-	h.RoomMgr.InformDisconnect(playerID)
 	h.DeleteConnection(c)
+	h.RoomMgr.InformDisconnect(playerID)
+	if leftRoom := h.RoomMgr.TryLeaveRoom(playerID); leftRoom {
+		h.UnlistIP(playerID)
+	}
 	fmt.Printf("Player %s disconnected\n", playerID)
 }

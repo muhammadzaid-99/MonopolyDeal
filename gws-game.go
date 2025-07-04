@@ -22,6 +22,7 @@ func (r *Room) Run() {
 		if err := recover(); err != nil {
 			fmt.Printf("Room %s crashed: %v\n", r.ID, err)
 		}
+		r.Cleanup <- r.ID
 	}()
 
 	for {
@@ -64,6 +65,13 @@ func (r *Room) handleEvent(event RoomEvent) {
 			"game_start": strconv.FormatBool(ok),
 			"message":    "If game_start is false, either not everyone is ready or game already started.",
 		})
+	case "leave-room": // only for room manager to access
+		err := r.LeaveRoom(msg.PlayerID)
+		event.reply <- err
+	case "broadcast-message":
+		r.BroadcastMessage(msg.PlayerID, msg.Message)
+	case "update-player-connection":
+		r.UpdatePlayerConnection(c, msg.PlayerID)
 	}
 
 	if !r.IsGameStarted {

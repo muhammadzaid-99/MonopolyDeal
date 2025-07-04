@@ -13,7 +13,7 @@ var (
 )
 
 const (
-	MaxPlayers           = 6
+	MaxPlayers           = 5
 	MinPlayers           = 2
 	MaxHandCards         = 7
 	RequiredPropertySets = 3
@@ -91,6 +91,7 @@ func (g *Game) NewPlayer(playerID string, playerName string) *Player2 {
 		HandCards:     make(map[uint8]c.Card),
 		ActionMessage: make(map[string]string),
 		PropertyPiles: make(map[string]*PropertyPile),
+		Connected:     true,
 	}
 	// return &Player{
 	// 	ID:                 playerID,

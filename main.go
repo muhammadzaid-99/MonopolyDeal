@@ -15,11 +15,13 @@ func main() {
 	}
 	fmt.Println("PORT is ", port)
 
-	server := gws.NewServer(&WSHandler{
+	h := &WSHandler{
 		RoomMgr:        NewRoomManager(),
 		PlayerIDToIP:   make(map[string]string),
 		ConnToPlayerID: make(map[*gws.Conn]string),
-	}, nil)
+	}
+	server := gws.NewServer(h, nil)
+	h.RoomMgr.StartRoomCleanup()
 
 	log.Fatal(server.Run(":" + port))
 }
