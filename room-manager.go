@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ func NewRoomManager() *RoomManager {
 }
 
 func (rm *RoomManager) StartRoomCleanup() {
-	fmt.Println("Room Cleaning Service Started")
+	log.Println("Room Cleaning Service Started")
 	go func() {
 		for roomID := range rm.Cleanup {
 			rm.Mutex.Lock()
@@ -32,8 +33,8 @@ func (rm *RoomManager) StartRoomCleanup() {
 				close(room.Events)
 			}
 			rm.Mutex.Unlock()
-			fmt.Printf("Room %s cleaned up\n", roomID)
-			fmt.Printf("Rooms count: %v\n", len(rm.Rooms))
+			log.Printf("Room %s cleaned up\n", roomID)
+			log.Printf("Rooms Count: %v\n", len(rm.Rooms))
 		}
 	}()
 }

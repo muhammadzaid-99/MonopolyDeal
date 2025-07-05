@@ -136,6 +136,7 @@ func (r *Room) GetPlayerListForBroadcast() []byte {
 			"HandCount":     len(p.HandCards),
 			"PropertyPiles": p.PropertyPiles,
 			"LooseCards":    p.LooseCards,
+			"BankSum":       p.GetBankSum(),
 			// "PropertyCards":      p.PropertyCards,
 			// "PropertyRents":      p.PropertyRents,
 			// "PropertyCompletion": p.PropertyCompletion,

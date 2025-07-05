@@ -52,7 +52,7 @@ func (h *WSHandler) GeneratePlayerID() string {
 
 func (h *WSHandler) OnOpen(c *gws.Conn) {
 	ip, _, _ := net.SplitHostPort(c.RemoteAddr().String())
-	fmt.Println("WebSocket connection opened:", ip)
+	fmt.Println("WebSocket Connection Opened:", ip)
 	c.WriteMessage(gws.OpcodeText, fmt.Appendf(nil, `{"type":"connected"}`))
 }
 
@@ -88,11 +88,11 @@ func (h *WSHandler) GetIPFromConn(c *gws.Conn) string {
 func (h *WSHandler) OnMessage(c *gws.Conn, message *gws.Message) {
 	var msg WSMessage
 	if err := json.Unmarshal(message.Bytes(), &msg); err != nil {
-		fmt.Println("invalid JSON:", err)
+		fmt.Println("Invalid JSON:", err)
 		return
 	}
 	playerID := msg.PlayerID
-	fmt.Printf("A message came with player ID: %s and card ID: %v\n", playerID, msg.CardID)
+	fmt.Printf("New Message :: PlayerID: %s, CardID: %v\n", playerID, msg.CardID)
 
 	// First Message from New Player (Invalid Player ID passed)
 	// whether player ID is empty or curated one, they cannot pass from here

@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"os"
 	"runtime/debug"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/lxzan/gws"
 )
 
@@ -20,10 +24,34 @@ func (h *WSHandler) GameMessageHandler(c *gws.Conn, msg WSMessage) {
 
 func (r *Room) Run() {
 	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("Room %s crashed: %v\n%s\n", r.ID, err, debug.Stack())
+		if rec := recover(); rec != nil {
+			stack := debug.Stack()
+			roomID := r.ID
+			log.Printf("Room %s crashed: %v\n%s\n", roomID, rec, stack)
+
+			// Notify manager
+			r.Cleanup <- r.ID
+
+			go func() {
+				dbConn, dberr := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+				if dberr != nil {
+					log.Printf("Failed to connect to the database: %v", dberr)
+					return
+				}
+				defer dbConn.Close(context.Background())
+
+				_, err := dbConn.Exec(context.Background(), `
+				INSERT INTO crash_logs (room_id, error_message, stack_trace, created_at)
+				VALUES ($1, $2, $3, NOW())
+			`, roomID, fmt.Sprintf("%v", rec), stack)
+
+				if err != nil {
+					log.Printf("Failed to insert crash log: %v", err)
+				}
+			}()
+		} else {
+			r.Cleanup <- r.ID
 		}
-		r.Cleanup <- r.ID
 	}()
 
 	for {
@@ -39,7 +67,7 @@ func (r *Room) Run() {
 func (r *Room) handleEvent(event RoomEvent) {
 	msg := event.msg
 	c := event.c
-	fmt.Println("New event came in room", r.ID, "type:", msg.Type)
+	fmt.Println("New Room Event :: RoomID:", r.ID, "Type:", msg.Type)
 
 	switch msg.Type {
 	case "join-room":

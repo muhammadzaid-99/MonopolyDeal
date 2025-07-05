@@ -266,6 +266,14 @@ func (p *Player2) GetHandCount() uint8 {
 	return uint8(len(p.HandCards))
 }
 
+func (p *Player2) GetBankSum() uint16 {
+	var sum uint16 = 0
+	for _, bc := range p.BankCards {
+		sum += uint16(bc.GetMoneyValue())
+	}
+	return sum
+}
+
 func (p *Player2) IsHandEmpty() bool {
 	return p.GetHandCount() == 0
 }
