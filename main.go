@@ -36,8 +36,8 @@ func TestDBConnection() {
 
 func init() {
 
-	go LoadEnvironmentVariables()
-	go TestDBConnection()
+	// go LoadEnvironmentVariables()
+	// go TestDBConnection()
 
 }
 

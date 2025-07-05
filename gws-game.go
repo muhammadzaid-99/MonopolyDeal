@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"os"
 	"runtime/debug"
 	"strconv"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/lxzan/gws"
 )
 
@@ -32,23 +29,23 @@ func (r *Room) Run() {
 			// Notify manager
 			r.Cleanup <- r.ID
 
-			go func() {
-				dbConn, dberr := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-				if dberr != nil {
-					log.Printf("Failed to connect to the database: %v", dberr)
-					return
-				}
-				defer dbConn.Close(context.Background())
+			// go func() {
+			// 	dbConn, dberr := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+			// 	if dberr != nil {
+			// 		log.Printf("Failed to connect to the database: %v", dberr)
+			// 		return
+			// 	}
+			// 	defer dbConn.Close(context.Background())
 
-				_, err := dbConn.Exec(context.Background(), `
-				INSERT INTO crash_logs (room_id, error_message, stack_trace, created_at)
-				VALUES ($1, $2, $3, NOW())
-			`, roomID, fmt.Sprintf("%v", rec), stack)
+			// 	_, err := dbConn.Exec(context.Background(), `
+			// 	INSERT INTO crash_logs (room_id, error_message, stack_trace, created_at)
+			// 	VALUES ($1, $2, $3, NOW())
+			// `, roomID, fmt.Sprintf("%v", rec), stack)
 
-				if err != nil {
-					log.Printf("Failed to insert crash log: %v", err)
-				}
-			}()
+			// 	if err != nil {
+			// 		log.Printf("Failed to insert crash log: %v", err)
+			// 	}
+			// }()
 		} else {
 			r.Cleanup <- r.ID
 		}
