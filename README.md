@@ -10,9 +10,11 @@ works out what actually happens and sends the updated game back to everyone. The
 game rules it follows are the standard ones, taken from
 [monopolydealrules.com](https://monopolydealrules.com/).
 
-There is a web client for this server in a separate repository,
+![Demo](artifacts/demo.gif)
+
+There is a mobile-responsive web client (PWA) for this server (demo above) in a separate repository,
 [MonopolyDealClient](https://github.com/muhammadzaid-99/MonopolyDealClient), if
-you want something to play on.
+you want something to play on. Supports 5 players.
 
 ## What it does
 
