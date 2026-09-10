@@ -13,7 +13,7 @@ updated game back to everyone. Rules follow the standard ones from
 
 There is a mobile-responsive web client (PWA) for this server, shown above, in a
 separate repository:
-[MonopolyDealClient](https://github.com/muhammadzaid-99/MonopolyDealClient).
+[monopoly-deal-client](https://github.com/muhammadzaid-99/monopoly-deal-client).
 
 ## What it does
 
@@ -91,18 +91,32 @@ it finishes.
 | It's My Birthday | Collect 2 from every other player |
 | Rent | Choose a set and, depending on the card, one opponent or all |
 
-All follow the same shape: select, react, pay. While one is open every message
-from a player is routed into it, so nobody can play on while a payment is
-outstanding. Debts are tracked per player, which is how Birthday and a two colour
-Rent collect from several people in whatever order they answer.
+All follow the same shape, and the game sits in that shape until it resolves:
 
-Two rules fall out of this for free:
+```mermaid
+stateDiagram-v2
+    [*] --> selection
+    selection --> reaction: target chosen
+    reaction --> settle: accepted
+    settle --> [*]: debt met
+    reaction --> cancelled: Just Say No
+    cancelled --> reaction: Just Say No back
+    cancelled --> [*]: gives up
+    settle --> settle: pays a card
+```
 
-- **Just Say No** is handled inside the action it answers, so answering one with
-  another is the same step twice, and the chain can run as long as players have
-  the cards.
-- **Double The Rent** doubles the rent already waiting to be paid instead of
-  being an effect of its own.
+Two loops in there are the whole point. Just Say No bounces between `reaction`
+and `cancelled` for as long as both players keep producing one, and payment stays
+in `settle` until the debt is met or the payer runs dry. Neither needed a special
+case: they are the same step repeating.
+
+While a pending action is open every message from a player is routed into it, so
+nobody can play on while a payment is outstanding. Debts are tracked per player,
+which is how Birthday and a two colour Rent walk several opponents through
+`settle` at once, in whatever order they answer.
+
+Double The Rent works the same way. It is not an effect of its own, it reaches
+into the rent already waiting in `settle` and doubles it.
 
 ## Rooms and their lifecycle
 
@@ -111,6 +125,21 @@ never share one. Up to five players join, everyone readies up, and any player ca
 start.
 
 Rooms clean up after themselves. No sweeping job, no manual teardown.
+
+```mermaid
+stateDiagram-v2
+    [*] --> lobby
+    lobby --> playing: game starts
+    playing --> lobby: someone wins
+    lobby --> waiting: all drop
+    playing --> waiting: all drop
+    waiting --> lobby: rejoin
+    waiting --> playing: rejoin
+    waiting --> [*]: timer expires
+```
+
+A room in `waiting` is still whole. Nothing is thrown away until the timer
+actually runs out, so a reconnection puts everyone back exactly where they were.
 
 | Situation | What happens |
 | --- | --- |
@@ -133,6 +162,21 @@ your client then sends with everything. That is what stops one player acting as
 another by claiming their ID.
 
 Since identity is not the socket, losing the socket costs nothing:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant R as Room
+    C->>S: first message, no player ID
+    S-->>C: player ID assigned
+    C->>S: join room, carrying the ID
+    S->>R: seat the player
+    Note over C,S: connection drops
+    C->>S: reconnects, same ID
+    S->>R: point the seat at the new connection
+    R-->>C: game state and your pending prompt
+```
 
 - A known player arriving on a new connection is recognised and reseated.
 - An address change, such as wifi to mobile data, is read as a reconnection
