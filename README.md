@@ -1,237 +1,190 @@
 # cashdeal
 
-cashdeal is a multiplayer server for the card game Monopoly Deal. It lets people
-create a room, share a short code with friends, and play a full game together
-over a WebSocket connection.
+cashdeal is a multiplayer server for the card game Monopoly Deal. Create a room,
+share a short code with friends, and play a full game over a WebSocket
+connection.
 
 The server keeps the whole game in memory and runs the rules itself. Players send
-what they want to do, such as playing a card or ending their turn, and the server
-works out what actually happens and sends the updated game back to everyone. The
-game rules it follows are the standard ones, taken from
+what they want to do, the server decides what actually happens and sends the
+updated game back to everyone. Rules follow the standard ones from
 [monopolydealrules.com](https://monopolydealrules.com/).
 
 ![Demo](artifacts/demo.gif)
 
-There is a mobile-responsive web client (PWA) for this server (demo above) in a separate repository,
-[MonopolyDealClient](https://github.com/muhammadzaid-99/MonopolyDealClient), if
-you want something to play on. Supports 5 players.
+There is a mobile-responsive web client (PWA) for this server, shown above, in a
+separate repository:
+[MonopolyDealClient](https://github.com/muhammadzaid-99/MonopolyDealClient).
 
 ## What it does
 
-**Runs many games at once.** Every room is independent, so games do not interfere
-with each other and a problem in one room never affects the others.
-
-**Handles the whole game.** All 106 cards are implemented, including properties,
-wildcards, money, rent, houses and hotels, and every action card. The server
-tracks turns, hands, banks and property sets for two to five players, and knows
-when someone has won.
-
-**Keeps information private.** You only ever receive your own hand. Of the other
-players you see what you would see at a real table: their bank, their properties,
-and how many cards they are holding, but never which cards those are.
-
-**Handles cards that need a reply.** Some cards cannot finish on their own. If
-someone plays Rent, the other players have to pay, and any of them might answer
-with Just Say No first. The server pauses the turn, asks each player what they
-want to do, collects the payments, and only then carries on.
-
-**Lets you organise your properties.** Property sets are piles that you build
-yourself. You can start a new pile, move cards between piles, and change the
-colour of a pile built around a wildcard. Tidying up like this is free and does
-not use one of your plays.
-
-**Survives players dropping out.** Phones lock and networks change. If a player
-disconnects, their seat and cards stay exactly where they were, and they can come
-straight back to them.
+- **Runs many games at once.** Rooms are independent, and a problem in one never
+  reaches the others.
+- **Handles the whole game.** All 106 cards for two to five players: properties,
+  wildcards, money, rent, houses, hotels and every action card.
+- **Keeps information private.** You get your own hand. Of everyone else you see
+  only what you would see at a real table.
+- **Handles cards that need a reply.** Rent, Just Say No and the rest pause the
+  turn while the server collects answers.
+- **Lets you organise your properties.** Build piles, move cards between them,
+  recolour a wildcard pile. Tidying is free.
+- **Survives players dropping out.** A disconnected player keeps their seat and
+  cards, and can come straight back.
 
 ## How a turn works
 
 | Step | What happens |
 | --- | --- |
-| Draw | Draw 2 cards at the start of your turn, or 5 if your hand is empty |
-| Play | Play up to 3 cards, into your bank, onto your properties, or as an action |
-| Tidy | Rearrange your property piles as much as you like, at no cost |
-| Discard | If you are holding more than 7 cards, discard down to 7 |
-| End | Pass the turn to the next player |
+| Draw | 2 cards, or 5 if your hand is empty |
+| Play | Up to 3 cards, into your bank, onto your properties, or as an action |
+| Tidy | Rearrange property piles freely, at no cost |
+| Discard | Down to 7 cards if you are holding more |
+| End | Pass to the next player |
 
-The first player to complete three full property sets wins. Every play is checked
-before it is allowed. You cannot play before drawing, cannot play a fourth card,
-cannot end your turn while holding too many cards, and cannot act on someone
-else's turn. If a card turns out to be unplayable in the current position, it
-goes back into your hand and your play is not spent.
+First player with three complete property sets wins.
+
+Every play is checked first. No playing before drawing, no fourth card, no ending
+your turn with too many cards, no acting on someone else's turn. An unplayable
+card returns to your hand and the play is not spent.
 
 ## Properties, sets and rent
 
-Property sets here are real piles rather than something worked out from the
-colours you happen to own. You create a pile, put cards into it, and the server
-keeps that pile up to date as it changes. This matters because of wildcards: a
-two colour wildcard can sit in either pile, and the same card can mean different
-things depending on where you put it. Making the pile the thing you own removes
-that ambiguity, and lets you rearrange your board without the server having to
-guess your intent.
-
-Each pile knows its colour, how many cards a full set of that colour needs, and
-what it is currently worth. Rent is recalculated whenever the pile changes.
+Sets are piles you build, not something worked out from the colours you own. This
+matters for wildcards: the same card means different things depending on which
+pile you put it in, so the pile is the thing that is owned. Rent is recalculated
+whenever a pile changes.
 
 | Pile state | Rent |
 | --- | --- |
-| Not yet complete | The rent for the number of cards it holds |
-| Complete | The full set rent |
-| Complete with a house | Set rent plus 3 |
-| Complete with a hotel | Set rent plus 7 |
+| Incomplete | Rent for the number of cards it holds |
+| Complete | Full set rent |
+| Complete with house | Set rent plus 3 |
+| Complete with hotel | Set rent plus 7 |
 
-Houses and hotels follow the usual restrictions. A house only goes on a completed
-set, a hotel only goes on a set that already has a house, and neither can be
-placed on railroads or utilities. A completed set will not accept further
-property cards. Cards played to your board without a destination sit to one side
-as loose cards until you file them into a pile, and empty piles are cleared away
-at the end of your turn.
+- A house needs a completed set, a hotel needs a house.
+- Neither goes on railroads or utilities.
+- A completed set takes no further property cards.
+- Cards played without a destination sit loose until you file them.
+- Empty piles are cleared at the end of your turn.
 
 ## Paying
 
-When you owe someone money, you choose which cards to hand over, one at a time,
-from your bank or from your properties. The server adds up what you have paid so
-far and tells you when the debt is settled. As in the real game there is no
-change given, so overpaying is your own problem.
-
-If you genuinely cannot cover the amount, you hand over what you can and the debt
-is closed there. Cards you pay with keep their nature: money and action cards go
-into the other player's bank, properties go onto their board.
-
-Just Say No can be used to cancel the demand outright, but only before you have
-started paying. Once the first card is handed over the offer is considered
-accepted.
+- You choose which cards to hand over, one at a time, from your bank or
+  properties.
+- No change is given, so overpaying is your own problem.
+- If you cannot cover it, you pay what you can and the debt closes there.
+- Money and action cards go into the other player's bank, properties onto their
+  board.
+- Just Say No cancels the demand, but only before your first card is handed over.
 
 ## Cards that need a reply
 
-Most cards resolve the moment they are played. Six do not, because they involve
-another player who has to be given a chance to respond. These are handled as
-small state machines that hold the game until they finish.
+Six cards cannot resolve on their own, because another player has to be given a
+chance to respond. Each runs as a small state machine that holds the game until
+it finishes.
 
-| Card | What the server has to arrange |
+| Card | What the server arranges |
 | --- | --- |
-| Deal Breaker | Pick an opponent and one of their completed sets, then let them refuse |
-| Sly Deal | Pick a single property from an opponent's incomplete set, then let them refuse |
+| Deal Breaker | Pick an opponent and a completed set, then let them refuse |
+| Sly Deal | Pick a property from an incomplete set, then let them refuse |
 | Forced Deal | Pick a property from each side to swap, then let them refuse |
-| Debt Collector | Pick one opponent, then collect 5 from them |
+| Debt Collector | Pick one opponent, then collect 5 |
 | It's My Birthday | Collect 2 from every other player |
-| Rent | Choose a set and, depending on the card, one opponent or all of them |
+| Rent | Choose a set and, depending on the card, one opponent or all |
 
-Each of these moves through the same shape: a selection step, a chance to react,
-and then payment. While one is open, everything a player sends is routed into it
-instead of the normal turn handling, so nobody can wander off and play a card
-while a payment is outstanding. Each player's debt is tracked separately, which
-is what allows It's My Birthday and a two colour Rent to collect from several
-people at once, in whatever order they happen to answer.
+All follow the same shape: select, react, pay. While one is open every message
+from a player is routed into it, so nobody can play on while a payment is
+outstanding. Debts are tracked per player, which is how Birthday and a two colour
+Rent collect from several people in whatever order they answer.
 
-Two rules fall out of this design rather than needing special cases of their own.
-Just Say No is dealt with inside whichever action it is answering, so playing one
-against another is simply the same step happening twice, and the chain can go on
-as long as the players have the cards for it. Double The Rent is not an effect by
-itself: it reaches into the rent that is already waiting to be paid and doubles
-it, which is exactly what the printed card describes.
+Two rules fall out of this for free:
+
+- **Just Say No** is handled inside the action it answers, so answering one with
+  another is the same step twice, and the chain can run as long as players have
+  the cards.
+- **Double The Rent** doubles the rent already waiting to be paid instead of
+  being an effect of its own.
 
 ## Rooms and their lifecycle
 
-When someone creates a room they get a six digit code to share, checked against
-the rooms already running so two games never end up with the same one. Up to five
-players join with that code, everyone marks themselves ready, and any player can
-then start the game.
+A new room gets a six digit code, checked against running rooms so two games
+never share one. Up to five players join, everyone readies up, and any player can
+start.
 
-Rooms look after themselves. There is no cleanup job sweeping the server, no
-manual teardown, and nothing left behind when a game ends.
+Rooms clean up after themselves. No sweeping job, no manual teardown.
 
 | Situation | What happens |
 | --- | --- |
-| Somebody is still connected | The room stays |
-| Everyone has gone and no players are seated | Deleted after 2 minutes |
-| Everyone has gone but players are still seated | Deleted after 20 minutes |
-| Anyone joins or reconnects | The countdown is cancelled |
+| Somebody is still connected | Room stays |
+| Everyone gone, no players seated | Deleted after 2 minutes |
+| Everyone gone, players still seated | Deleted after 20 minutes |
+| Anyone joins or reconnects | Countdown cancelled |
 
-The two waits are deliberate. An empty lobby that nobody joined is worth
-forgetting quickly, but a real game where everyone briefly lost signal deserves a
-generous window before it is thrown away.
+The split is deliberate: an empty lobby is worth forgetting quickly, a real game
+where everyone lost signal deserves a generous window.
 
-Leaving works differently before and after the game starts. In the lobby you can
-leave freely and your seat is released. Once play has begun, leaving is treated
-as a disconnection: you are marked absent, but your hand, bank and properties
-stay on the table so the game is still there if you come back.
+Leaving in the lobby releases your seat. Leaving mid-game counts as a
+disconnection, so your cards stay on the table.
 
 ## Players and reconnecting
 
-The server hands out identity rather than trusting the client for it. On your
-first message it generates a player ID, records which connection and address it
-belongs to, and sends it back. Your client keeps it and includes it from then on,
-which is what stops one player from acting as another by simply claiming their
-ID.
+The server hands out identity instead of trusting the client for it. Your first
+message gets you a player ID, recorded against your connection and address, which
+your client then sends with everything. That is what stops one player acting as
+another by claiming their ID.
 
-Because your identity is not the socket, losing the socket costs you nothing. If
-a message arrives for a known player on a new connection, the server recognises
-that the player has come back, points their seat at the new connection, and tells
-the room. It also notices when the address behind a player changes, which is what
-happens when a phone moves from wifi to mobile data, and reports that as a
-reconnection rather than a stranger.
+Since identity is not the socket, losing the socket costs nothing:
 
-The last thing the server asked of each player is remembered as well. If you drop
-out halfway through paying rent, you return to that same request instead of a
-board that looks finished but will not let you do anything.
+- A known player arriving on a new connection is recognised and reseated.
+- An address change, such as wifi to mobile data, is read as a reconnection
+  rather than a stranger.
+- The last thing the server asked of you is remembered, so dropping out midway
+  through paying rent returns you to that request, not a frozen board.
 
 ## How it is built
 
-The server is written in Go and uses [gws](https://github.com/lxzan/gws) for
-WebSocket connections. There is no database. Everything lives in memory for as
-long as the room does, which is the right trade for a game that is worthless once
-it is over.
+Go, with [gws](https://github.com/lxzan/gws) for WebSockets. No database.
+Everything lives in memory for as long as the room does.
 
 ### One room, one goroutine
 
-Each connection is read on its own goroutine, so two players in the same game can
-easily be sending messages at the same instant. The obvious answer is to lock the
-game state everywhere it is touched, which gets unpleasant quickly when a single
-action moves cards between four different players.
+Connections are read on their own goroutines, so players in the same game send at
+the same instant. Locking game state everywhere gets unpleasant when one action
+moves cards between four players.
 
-Instead, every room runs its own goroutine with its own queue of events.
-Connections do not touch game state at all. They put a message on the room's
-queue and move on, and the room takes them off one at a time in the order they
-arrived. Only one thing is ever happening to a game, so the game logic can be
-written as ordinary sequential code and read as if it were single player. Where a
-caller does need an answer, such as finding out whether a join was accepted, it
-sends a reply channel along with the event and waits for the room to answer.
+Instead each room owns a goroutine and an event queue. Connections never touch
+game state; they queue a message and move on, and the room handles them one at a
+time in arrival order. Only one thing happens to a game at once, so the game
+logic reads like single player code. Callers needing an answer, such as a join,
+send a reply channel with the event.
 
-This also draws a clean line around failure. If a room ever panics it recovers,
-logs what happened, and hands its own ID to a cleanup worker that removes it and
-releases its memory. One broken game disappears. Every other game on the server
-carries on without noticing.
+This is also the failure boundary. A room that panics recovers, logs, and hands
+its ID to a cleanup worker that frees it. One game disappears, the rest of the
+server carries on.
 
 ### Changing state safely
 
-Moving a card between players is not a single step. The server has to find the
-card, check that taking it is legal, and only then remove it from where it was.
-Doing that in one pass risks pulling a card out and discovering afterwards that
-the move was not allowed.
+Moving a card means finding it, checking the move is legal, then removing it.
+Done in one pass, you risk pulling a card out and finding afterwards that the
+move was not allowed.
 
-So a lookup returns the card along with a function that commits the removal. The
-caller inspects what it found, and only calls that function once it is sure. The
-commit can only run once, and it also tidies up after itself by clearing the pile
-if it is now empty and recalculating rent. The same idea applies to playing a
-card: it leaves your hand first, and if the play turns out to be illegal it is
-put straight back and the play is not counted.
+So lookups return the card plus a commit function. The caller inspects what it
+found and commits only when sure. The commit runs once, clears the pile if it is
+now empty, and recalculates rent. Playing a card works the same way: it leaves
+your hand first, and an illegal play puts it straight back without spending a
+play.
 
 ### The deck
 
-The deck is built once per game from the individual card groups and shuffled. The
-106 cards are numbered from 1 upwards as the deck is assembled, and that number
-is the only thing the client ever needs to send to refer to a card. Zero is never
-used, so a missing or malformed card ID cannot accidentally mean a real card.
+Built once per game from the card groups and shuffled. The 106 cards are numbered
+from 1 as the deck is assembled, and that number is all the client ever sends to
+name a card. Zero is never used, so a missing ID cannot mean a real card.
 
-When the draw pile runs out, the discard pile is shuffled back into it, except
-for the card on top, which stays visible so play can continue from a known
-position.
+When the draw pile runs out the discard pile is shuffled back in, minus the top
+card, which stays visible.
 
 ## Talking to the server
 
-Everything in both directions is JSON with a type on it, over one connection per
-player.
+JSON with a type on it, both directions, one connection per player.
 
 | The client sends | For |
 | --- | --- |
@@ -241,40 +194,38 @@ player.
 | `arrange-property`, `create-pile`, `change-pile-color` | Organising your board |
 | `discard-card` | Getting back to seven cards |
 
-While a card is waiting on a reply, the same messages carry the answer to it, so
-the client does not need a separate vocabulary for responding to Rent or choosing
-who to take a set from.
+The same messages carry replies to a waiting card, so there is no separate
+vocabulary for answering Rent or choosing who to take a set from.
 
 | The server sends | What it contains |
 | --- | --- |
 | Your hand | Only ever your own cards |
-| The player list | Everyone's name, bank, properties and hand size |
-| Game info | Whose turn it is, plays left, the top of the discard pile, recent events |
+| Player list | Everyone's name, bank, properties and hand size |
+| Game info | Whose turn, plays left, top of the discard pile, recent events |
 | Your prompt | What you are expected to do right now |
 
-Any change sends all of these together rather than a description of what changed.
-It costs a little more traffic and removes a whole category of bug, because the
-client can never drift out of step with the server. It simply draws whatever
-arrived last, and a client that missed a message is fixed by the next one.
+All of it goes out together on any change, rather than a description of what
+changed. Slightly more traffic, but the client cannot drift out of step: it draws
+whatever arrived last, and a missed message is fixed by the next one.
 
 ## Running it
 
-You need Go 1.24 or newer.
+Go 1.24 or newer.
 
 ```sh
 go run .
 ```
 
-The server listens on the port in the `PORT` environment variable, or 8080 if
-that is not set. On Windows, `run.bat` builds and starts it in one step.
+Listens on `PORT`, or 8080 if unset. On Windows, `run.bat` builds and starts it
+in one step.
 
 ## Project layout
 
 | Files | What is in them |
 | --- | --- |
 | `main.go` | Starting the server |
-| `gws-main.go`, `gws-game.go` | Connections, player identity, and the room event loop |
-| `room.go`, `room-manager.go` | Rooms, turns, and sending game state to players |
+| `gws-main.go`, `gws-game.go` | Connections, player identity, room event loop |
+| `room.go`, `room-manager.go` | Rooms, turns, sending game state to players |
 | `action.go`, `action-resolver.go` | Action cards and the ones that need a reply |
 | `models/cards` | The cards and the deck |
 | `models/game` | Game state, players, property piles and rent |
