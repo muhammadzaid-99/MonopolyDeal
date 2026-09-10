@@ -1,6 +1,6 @@
-# cashdeal
+# Monopoly Deal
 
-cashdeal is a multiplayer server for the card game Monopoly Deal. Create a room,
+A multiplayer server for the card game Monopoly Deal. Create a room,
 share a short code with friends, and play a full game over a WebSocket
 connection.
 
